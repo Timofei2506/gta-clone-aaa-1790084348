@@ -1,6 +1,5 @@
 /**
- * NetworkClient.ts - Fixed for Vercel HTTPS + WSS
- * No more Mixed Content errors
+ * NetworkClient.ts - v0.4: silent, no spam logs
  */
 export class NetworkClient {
   private ws: WebSocket | null = null
@@ -17,7 +16,6 @@ export class NetworkClient {
   private retryCount = 0
 
   private getServerUrl(): string | null {
-    // Env override - самый приоритетный
     // @ts-ignore
     const envUrl = import.meta.env?.VITE_WS_URL
     if (envUrl) return envUrl
@@ -26,31 +24,20 @@ export class NetworkClient {
     const proto = isSecure ? 'wss:' : 'ws:'
     const host = location.hostname
 
-    // Local dev
     if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
       return `${proto}//localhost:8080`
     }
 
-    // Vercel deployment - у Vercel нет raw WS на 8080, нужен отдельный сервер
-    // Если деплой на *.vercel.app - идем в оффлайн режим, но без ошибок
     if (host.includes('vercel.app')) {
-      // Пробуем найти сервер: если есть VITE_WS_SERVER env, используем
-      // Иначе - оффлайн, без спама в консоль
-      console.info('[Network] Vercel detected - checking for dedicated WS server...')
-      // Можно задеплоить сервер на Render/Fly и указать URL через env
-      // Пока возвращаем null = offline mode
-      return null
+      return null // silent offline
     }
 
-    // Продакшн - тот же хост, но с wss и правильным портом
     return `${proto}//${host}:8080`
   }
 
   async connect(): Promise<void> {
     return new Promise((resolve) => {
       if (!this.serverUrl) {
-        // Offline mode - нормально для Vercel без отдельного WS сервера
-        console.info('[Network] No WS server configured, running offline')
         resolve()
         return
       }
@@ -73,7 +60,6 @@ export class NetworkClient {
 
         this.ws.onclose = () => {
           this.isConnected = false
-          // Не спамим реконнектами на Vercel
           if (this.retryCount < 2 && this.serverUrl && !this.serverUrl.includes('vercel.app')) {
             this.retryCount++
             setTimeout(() => this.connect(), 3000)
@@ -81,14 +67,13 @@ export class NetworkClient {
         }
 
         this.ws.onerror = () => {
-          // Тихо уходим в оффлайн, без красного стектрейса
           this.isConnected = false
           resolve()
         }
 
         setTimeout(() => {
           if (!this.isConnected) resolve()
-        }, 1500)
+        }, 1200)
 
       } catch {
         resolve()

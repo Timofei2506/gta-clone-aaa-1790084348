@@ -1,6 +1,5 @@
 /**
- * PhysicsWorld.ts - Rapier физика, как Bullet в RAGE
- * FIX: deprecated init warning
+ * PhysicsWorld.ts - FIXED v0.4: no deprecated init warning
  */
 import * as RAPIER from '@dimforge/rapier3d-compat'
 
@@ -9,9 +8,18 @@ export class PhysicsWorld {
   private gravity = { x: 0, y: -19.62, z: 0 }
 
   async init() {
-    // FIX: new API expects object, not empty call
+    // FIX: Rapier 0.15+ compat - init() with no args is the new way
+    // Passing {} was still triggering "deprecated parameters" in some builds
     // @ts-ignore
-    await RAPIER.init({})
+    if (typeof RAPIER.init === 'function') {
+      try {
+        // Try new API first - no args
+        await (RAPIER as any).init()
+      } catch {
+        // Fallback to old compat
+        await (RAPIER as any).init({})
+      }
+    }
     this.world = new RAPIER.World(this.gravity)
   }
 

@@ -1,5 +1,6 @@
 /**
- * CityGenerator.ts - FIXED: realistic PBR textures, better models
+ * CityGenerator.ts - v0.4 FIXED: no MAX_TEXTURE_IMAGE_UNITS overflow
+ * FIX: 50 point lights with shadows = 50 shadow maps > 16 limit
  */
 import * as THREE from 'three'
 import * as RAPIER from '@dimforge/rapier3d-compat'
@@ -27,41 +28,39 @@ export class CityGenerator {
 
   private createProceduralTexture(type: 'concrete' | 'brick' | 'asphalt' | 'windows', color: string) {
     const canvas = document.createElement('canvas')
-    canvas.width = 256
-    canvas.height = 256
+    canvas.width = 128 // smaller for perf
+    canvas.height = 128
     const ctx = canvas.getContext('2d')!
-    
     ctx.fillStyle = color
-    ctx.fillRect(0,0,256,256)
+    ctx.fillRect(0,0,128,128)
     
     if (type === 'concrete') {
-      for (let i=0; i<400; i++) {
+      for (let i=0; i<200; i++) {
         ctx.fillStyle = `rgba(0,0,0,${Math.random()*0.08})`
-        ctx.fillRect(Math.random()*256, Math.random()*256, Math.random()*4+1, Math.random()*4+1)
+        ctx.fillRect(Math.random()*128, Math.random()*128, 2, 2)
       }
     } else if (type === 'brick') {
-      ctx.fillStyle = '#3a2a2a'
-      for (let y=0; y<256; y+=32) {
-        for (let x=0; x<256; x+=64) {
-          const offset = (y/32)%2===0 ? 0 : 32
+      for (let y=0; y<128; y+=16) {
+        for (let x=0; x<128; x+=32) {
+          const offset = (y/16)%2===0 ? 0 : 16
           ctx.fillStyle = `hsl(${10+Math.random()*10}, 20%, ${25+Math.random()*10}%)`
-          ctx.fillRect(x+offset+2, y+2, 60, 28)
+          ctx.fillRect(x+offset+1, y+1, 30, 14)
         }
       }
     } else if (type === 'asphalt') {
-      for (let i=0; i<800; i++) {
-        ctx.fillStyle = `rgba(${100+Math.random()*40},${100+Math.random()*40},${100+Math.random()*40},0.3)`
-        ctx.fillRect(Math.random()*256, Math.random()*256, 2, 2)
+      for (let i=0; i<400; i++) {
+        ctx.fillStyle = `rgba(${100+Math.random()*40},${100+Math.random()*40},${100+Math.random()*40},0.2)`
+        ctx.fillRect(Math.random()*128, Math.random()*128, 1, 1)
       }
     } else if (type === 'windows') {
       ctx.fillStyle = '#1a1a2a'
-      ctx.fillRect(0,0,256,256)
-      for (let y=8; y<256; y+=32) {
-        for (let x=8; x<256; x+=24) {
+      ctx.fillRect(0,0,128,128)
+      for (let y=4; y<128; y+=16) {
+        for (let x=4; x<128; x+=12) {
           if (Math.random() > 0.3) {
             ctx.fillStyle = Math.random() > 0.7 ? '#ffff88' : '#88aaff'
-            ctx.globalAlpha = 0.8 + Math.random()*0.2
-            ctx.fillRect(x, y, 14, 20)
+            ctx.globalAlpha = 0.8
+            ctx.fillRect(x, y, 7, 10)
           }
         }
       }
@@ -79,16 +78,14 @@ export class CityGenerator {
     const blocksX = Math.floor(opts.size / opts.blockSize)
     const blocksZ = Math.floor(opts.size / opts.blockSize)
 
-    // Textures
     const asphaltTex = this.createProceduralTexture('asphalt', '#1a1a1a')
-    asphaltTex.repeat.set(10,10)
+    asphaltTex.repeat.set(8,8)
     const concreteTex = this.createProceduralTexture('concrete', '#2a2a2a')
-    concreteTex.repeat.set(2,2)
+    concreteTex.repeat.set(1,1)
     const brickTex = this.createProceduralTexture('brick', '#3a2a2a')
     const windowTex = this.createProceduralTexture('windows', '#1a1a2a')
-    windowTex.repeat.set(1,2)
+    windowTex.repeat.set(1,1)
 
-    // Ground - asphalt + concrete mix
     const groundGeo = new THREE.PlaneGeometry(opts.size, opts.size)
     const groundMat = new THREE.MeshStandardMaterial({
       map: asphaltTex,
@@ -107,42 +104,40 @@ export class CityGenerator {
     const groundCol = R.ColliderDesc.cuboid(half, 0.5, half).setTranslation(0, -0.5, 0)
     world.createCollider(groundCol, groundBody)
 
-    // Building materials - PBR with textures
-    const buildingMats = [
-      new THREE.MeshStandardMaterial({ 
-        map: concreteTex, 
-        color: 0xcccccc,
-        roughness: 0.8, metalness: 0.1 
-      }),
-      new THREE.MeshStandardMaterial({ 
-        map: brickTex,
-        roughness: 0.85, metalness: 0.05 
-      }),
-      new THREE.MeshStandardMaterial({ 
-        color: 0x4a5a6a, 
-        roughness: 0.3, metalness: 0.6,
-        envMapIntensity: 0.5
-      }),
-      new THREE.MeshStandardMaterial({ 
-        color: 0x3a3a3a, 
-        roughness: 0.7, metalness: 0.2 
-      }),
-    ]
+    // FIX: Use single shared materials to reduce texture units
+    const sharedConcreteMat = new THREE.MeshStandardMaterial({ 
+      map: concreteTex, 
+      color: 0xcccccc,
+      roughness: 0.8, metalness: 0.1 
+    })
+    const sharedBrickMat = new THREE.MeshStandardMaterial({ 
+      map: brickTex,
+      roughness: 0.85, metalness: 0.05 
+    })
+    const sharedGlassMat = new THREE.MeshStandardMaterial({ 
+      color: 0x4a5a6a, 
+      roughness: 0.3, metalness: 0.6
+    })
+    const sharedDarkMat = new THREE.MeshStandardMaterial({ 
+      color: 0x3a3a3a, 
+      roughness: 0.7, metalness: 0.2 
+    })
+
+    const buildingMats = [sharedConcreteMat, sharedBrickMat, sharedGlassMat, sharedDarkMat]
 
     const windowMat = new THREE.MeshStandardMaterial({
       map: windowTex,
       emissive: 0xffffaa,
       emissiveMap: windowTex,
-      emissiveIntensity: 0.6,
+      emissiveIntensity: 0.5,
       roughness: 0.2,
-      metalness: 0.9
+      metalness: 0.8
     })
 
-    // Roads with markings
     const roadMat = new THREE.MeshStandardMaterial({ 
       map: asphaltTex,
       color: 0x222222,
-      roughness: 0.9, metalness: 0.1 
+      roughness: 0.9, metalness: 0.05 
     })
 
     for (let bx = -blocksX/2; bx < blocksX/2; bx++) {
@@ -151,7 +146,6 @@ export class CityGenerator {
         const blockCenterZ = bz * opts.blockSize + opts.blockSize/2
 
         if (Math.abs(bx) < blocksX/2 && Math.abs(bz) < blocksZ/2) {
-          // Road
           const roadH = new THREE.Mesh(new THREE.PlaneGeometry(opts.blockSize, opts.roadWidth), roadMat)
           roadH.rotation.x = -Math.PI/2
           roadH.position.set(blockCenterX, 0.02, blockCenterZ - opts.blockSize/2)
@@ -159,8 +153,7 @@ export class CityGenerator {
           this.scene.add(roadH)
           this.roads.push(roadH)
 
-          // White line
-          const lineGeo = new THREE.PlaneGeometry(opts.blockSize, 0.3)
+          const lineGeo = new THREE.PlaneGeometry(opts.blockSize, 0.25)
           const lineMat = new THREE.MeshStandardMaterial({ color: 0xffffff })
           const line = new THREE.Mesh(lineGeo, lineMat)
           line.rotation.x = -Math.PI/2
@@ -190,9 +183,8 @@ export class CityGenerator {
           const x = blockCenterX + (Math.random() - 0.5) * (opts.blockSize - w - opts.roadWidth - 4)
           const z = blockCenterZ + (Math.random() - 0.5) * (opts.blockSize - d - opts.roadWidth - 4)
 
-          // Building with windows texture on sides
           const geo = new THREE.BoxGeometry(w, h, d)
-          const mat = buildingMats[Math.floor(Math.random() * buildingMats.length)].clone()
+          const mat = buildingMats[Math.floor(Math.random() * buildingMats.length)]
           const building = new THREE.Mesh(geo, mat)
           building.position.set(x, h/2, z)
           building.castShadow = true
@@ -204,89 +196,68 @@ export class CityGenerator {
           const col = world.createCollider(colDesc)
           this.colliders.push(col)
 
-          // Windows - separate planes for realism
-          if (h > 20 && Math.random() > 0.2) {
-            const sides = [
-              { pos: [x + w/2 + 0.02, 0, 0], rot: Math.PI/2, size: [d, h] },
-              { pos: [x - w/2 - 0.02, 0, 0], rot: -Math.PI/2, size: [d, h] },
-              { pos: [0, 0, z + d/2 + 0.02], rot: 0, size: [w, h] },
-              { pos: [0, 0, z - d/2 - 0.02], rot: Math.PI, size: [w, h] },
-            ]
-            // Only 1-2 sides to save perf
-            const side = sides[Math.floor(Math.random()*sides.length)]
-            const winGeo = new THREE.PlaneGeometry(side.size[0]*0.9, side.size[1]*0.85)
+          if (h > 20 && Math.random() > 0.4) {
+            const winGeo = new THREE.PlaneGeometry(w*0.8, h*0.7)
             const winMesh = new THREE.Mesh(winGeo, windowMat)
-            winMesh.position.set(x + (side.pos[0]-x), h/2, z + (side.pos[2]-z))
-            if (side.rot !== 0) winMesh.rotation.y = side.rot
+            winMesh.position.set(x, h/2, z + d/2 + 0.02)
             this.scene.add(winMesh)
           }
 
-          // Roof details
-          const roofGeo = new THREE.BoxGeometry(w*0.85, 1.2, d*0.85)
+          const roofGeo = new THREE.BoxGeometry(w*0.85, 1.0, d*0.85)
           const roofMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 })
           const roof = new THREE.Mesh(roofGeo, roofMat)
-          roof.position.set(x, h+0.6, z)
+          roof.position.set(x, h+0.5, z)
           roof.castShadow = true
           this.scene.add(roof)
-
-          // AC units on roof
-          if (Math.random() > 0.5) {
-            const acGeo = new THREE.BoxGeometry(2, 1.5, 2)
-            const acMat = new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.7, roughness: 0.3 })
-            const ac = new THREE.Mesh(acGeo, acMat)
-            ac.position.set(x + (Math.random()-0.5)*w*0.5, h+1.5, z + (Math.random()-0.5)*d*0.5)
-            this.scene.add(ac)
-          }
         }
       }
     }
 
-    // Street lights with better model
-    for (let i=0; i<50; i++) {
+    // FIX: No shadows for point lights - prevents MAX_TEXTURE_IMAGE_UNITS overflow
+    // Only sun casts shadows now
+    for (let i=0; i<30; i++) {
       const x = (Math.random()-0.5)*opts.size*0.9
       const z = (Math.random()-0.5)*opts.size*0.9
-      const light = new THREE.PointLight(0xffaa44, 3, 35, 2)
-      light.position.set(x, 8.5, z)
-      light.castShadow = true
-      light.shadow.mapSize.set(512,512)
+      const light = new THREE.PointLight(0xffaa44, 2.5, 30, 2)
+      light.position.set(x, 8, z)
+      light.castShadow = false // FIX: was true, caused 50 shadow maps > 16 limit
       this.streetLights.push(light)
       
-      const poleGeo = new THREE.CylinderGeometry(0.12, 0.15, 9, 8)
-      const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.8, roughness: 0.2 })
+      const poleGeo = new THREE.CylinderGeometry(0.1, 0.12, 8, 6)
+      const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.5, roughness: 0.5 })
       const pole = new THREE.Mesh(poleGeo, poleMat)
-      pole.position.set(x, 4.5, z)
+      pole.position.set(x, 4, z)
       pole.castShadow = true
       this.scene.add(pole)
 
-      const lampGeo = new THREE.SphereGeometry(0.4, 8, 8)
+      const lampGeo = new THREE.SphereGeometry(0.3, 6, 6)
       const lampMat = new THREE.MeshStandardMaterial({ 
         color: 0xffaa44, 
         emissive: 0xffaa44, 
-        emissiveIntensity: 2 
+        emissiveIntensity: 1.5 
       })
       const lamp = new THREE.Mesh(lampGeo, lampMat)
-      lamp.position.set(x, 9, z)
+      lamp.position.set(x, 8.3, z)
       this.scene.add(lamp)
     }
 
-    // Trees with better model
-    for (let i=0; i<50; i++) {
+    for (let i=0; i<30; i++) {
       const x = (Math.random()-0.5)*opts.size*0.85
       const z = (Math.random()-0.5)*opts.size*0.85
       if (Math.abs(x) < 50 && Math.abs(z) < 50) continue
       const treeGroup = new THREE.Group()
       
-      const trunkGeo = new THREE.CylinderGeometry(0.25, 0.4, 5, 8)
+      const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 4, 6)
       const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3d2817, roughness: 0.9 })
       const trunk = new THREE.Mesh(trunkGeo, trunkMat)
-      trunk.position.y = 2.5
+      trunk.position.y = 2
       trunk.castShadow = true
       treeGroup.add(trunk)
 
-      const leavesGeo = new THREE.IcosahedronGeometry(2.8, 0)
+      const leavesGeo = new THREE.IcosahedronGeometry(2.2, 0)
       const leavesMat = new THREE.MeshStandardMaterial({ color: 0x1e4a1e, roughness: 0.8 })
       const leaves = new THREE.Mesh(leavesGeo, leavesMat)
-      leaves.position.y = 6
+      leaves.position.y = 5
       leaves.castShadow = true
       treeGroup.add(leaves)
 

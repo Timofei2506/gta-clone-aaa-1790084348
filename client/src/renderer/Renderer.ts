@@ -1,5 +1,5 @@
 /**
- * Renderer.ts - FIXED: PBR + Sky + Fog + Realistic
+ * Renderer.ts - FIXED v0.4: no deprecated useLegacyLights, no texture units overflow
  */
 import * as THREE from 'three'
 import { Lighting } from './Lighting'
@@ -26,18 +26,17 @@ export class Renderer {
       stencil: false
     })
     this.webglRenderer.setSize(window.innerWidth, window.innerHeight)
-    this.webglRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8))
+    this.webglRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     this.webglRenderer.shadowMap.enabled = true
     this.webglRenderer.shadowMap.type = THREE.PCFSoftShadowMap
     this.webglRenderer.shadowMap.autoUpdate = true
+    // FIX: removed deprecated useLegacyLights - in r155+ it's always false
     this.webglRenderer.toneMapping = THREE.ACESFilmicToneMapping
     this.webglRenderer.toneMappingExposure = 1.0
     this.webglRenderer.outputColorSpace = THREE.SRGBColorSpace
-    this.webglRenderer.useLegacyLights = false
 
     this.lighting = new Lighting(this.scene)
 
-    // Sky gradient
     const vertexShader = `
       varying vec3 vWorldPosition;
       void main() {
