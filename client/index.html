@@ -3,54 +3,62 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GTA CLONE AAA - Open City Reborn</title>
+  <title>OPEN CITY - GTA Clone AAA</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏙️</text></svg>">
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { 
       background:#000; 
       overflow:hidden; 
-      font-family: 'Segoe UI', system-ui, monospace;
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
       cursor: none;
+      overscroll-behavior: none;
     }
     #canvas { width:100vw; height:100vh; display:block; }
-    #ui {
-      position:fixed; top:0; left:0; width:100%; height:100%;
-      pointer-events:none; color:white;
-    }
+    #ui { position:fixed; inset:0; pointer-events:none; color:white; }
     #crosshair {
       position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-      width:20px; height:20px; 
+      width:18px; height:18px; opacity:0.7; display:none;
     }
     #crosshair::before, #crosshair::after {
-      content:''; position:absolute; background:rgba(255,255,255,0.8);
+      content:''; position:absolute; background:white; border-radius:1px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.8);
     }
-    #crosshair::before { left:9px; top:0; width:2px; height:20px; }
-    #crosshair::after { left:0; top:9px; width:20px; height:2px; }
+    #crosshair::before { left:8px; top:0; width:2px; height:18px; }
+    #crosshair::after { left:0; top:8px; width:18px; height:2px; }
     #hud {
-      position:absolute; bottom:20px; left:20px;
-      background:rgba(0,0,0,0.6); padding:12px 18px; border-radius:8px;
-      backdrop-filter: blur(10px); border:1px solid rgba(255,255,255,0.1);
+      position:absolute; bottom:24px; left:24px;
+      background:linear-gradient(135deg, rgba(0,0,0,0.8), rgba(20,20,30,0.6));
+      padding:14px 20px; border-radius:12px;
+      backdrop-filter: blur(16px); border:1px solid rgba(255,255,255,0.08);
+      min-width:220px;
     }
-    #hud h1 { font-size:14px; letter-spacing:2px; opacity:0.6; }
-    #hud .stat { font-size:22px; font-weight:700; margin-top:4px; }
+    #hud h1 { font-size:10px; letter-spacing:3px; opacity:0.5; font-weight:600; }
+    #hud .stat { font-size:13px; font-weight:500; margin-top:6px; font-family: monospace; opacity:0.9; }
     #players {
-      position:absolute; top:20px; right:20px;
-      background:rgba(0,0,0,0.6); padding:12px; border-radius:8px;
-      backdrop-filter: blur(10px); min-width:180px;
+      position:absolute; top:24px; right:24px;
+      background:rgba(0,0,0,0.7); padding:14px 16px; border-radius:12px;
+      backdrop-filter: blur(16px); min-width:180px; border:1px solid rgba(255,255,255,0.06);
     }
     #loading {
-      position:fixed; inset:0; background:#0a0a0a; display:flex;
-      flex-direction:column; align-items:center; justify-content:center;
-      z-index:100; color:white; transition:opacity 0.5s;
+      position:fixed; inset:0; background:radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0a 100%);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      z-index:100; color:white; transition:opacity 0.4s ease;
     }
-    #loading h2 { font-size:32px; letter-spacing:8px; margin-bottom:20px; }
-    #loading .bar { width:300px; height:2px; background:rgba(255,255,255,0.1); overflow:hidden; }
-    #loading .progress { height:100%; width:0%; background:white; transition:width 0.2s; }
+    #loading h2 { 
+      font-size:42px; letter-spacing:12px; font-weight:900; margin-bottom:24px;
+      background: linear-gradient(135deg, #fff, #888);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    #loading .bar { width:320px; height:2px; background:rgba(255,255,255,0.08); overflow:hidden; border-radius:2px; }
+    #loading .progress { height:100%; width:0%; background:linear-gradient(90deg, #4a90e2, #fff); transition:width 0.3s ease; box-shadow: 0 0 10px rgba(74,144,226,0.5); }
     #controls {
-      position:absolute; bottom:20px; right:20px;
-      background:rgba(0,0,0,0.6); padding:12px; border-radius:8px;
-      font-size:12px; opacity:0.7; line-height:1.6;
+      position:absolute; bottom:24px; right:24px;
+      background:rgba(0,0,0,0.6); padding:14px 16px; border-radius:10px;
+      font-size:11px; opacity:0.6; line-height:1.7; letter-spacing:0.5px;
+      backdrop-filter: blur(10px);
     }
+    #controls b { color:#4a90e2; }
   </style>
 </head>
 <body>
@@ -58,32 +66,30 @@
   <div id="loading">
     <h2>OPEN CITY</h2>
     <div class="bar"><div class="progress" id="progress"></div></div>
-    <div style="margin-top:12px; font-size:12px; opacity:0.5; letter-spacing:2px;" id="loading-text">LOADING RAGE...</div>
+    <div style="margin-top:16px; font-size:11px; opacity:0.4; letter-spacing:3px; font-weight:600;" id="loading-text">BOOTING RAGE</div>
   </div>
   <div id="ui">
     <div id="crosshair"></div>
     <div id="hud">
-      <h1>HEALTH & STAMINA</h1>
-      <div class="stat" id="coords">X:0 Y:0 Z:0</div>
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <div style="width:80px; height:6px; background:rgba(255,255,255,0.2); border-radius:3px; overflow:hidden;">
-          <div id="health-bar" style="width:100%; height:100%; background:#ff3b30;"></div>
+      <h1>PLAYER STATUS</h1>
+      <div class="stat" id="coords">0 0 0 | 60 FPS</div>
+      <div style="display:flex; gap:10px; margin-top:10px; align-items:center;">
+        <div style="flex:1; height:4px; background:rgba(255,255,255,0.15); border-radius:2px; overflow:hidden;">
+          <div id="health-bar" style="width:100%; height:100%; background:linear-gradient(90deg, #ff3b30, #ff6b6b);"></div>
         </div>
-        <div style="width:80px; height:6px; background:rgba(255,255,255,0.2); border-radius:3px; overflow:hidden;">
-          <div id="stamina-bar" style="width:100%; height:100%; background:#4cd964;"></div>
+        <div style="flex:1; height:4px; background:rgba(255,255,255,0.15); border-radius:2px; overflow:hidden;">
+          <div id="stamina-bar" style="width:100%; height:100%; background:linear-gradient(90deg, #4cd964, #a8ff78); transition:width 0.1s;"></div>
         </div>
       </div>
     </div>
     <div id="players">
-      <div style="font-size:11px; letter-spacing:2px; opacity:0.5; margin-bottom:8px;">ONLINE PLAYERS</div>
-      <div id="player-list">Connecting...</div>
+      <div style="font-size:10px; letter-spacing:2px; opacity:0.4; margin-bottom:10px; font-weight:700;">ONLINE</div>
+      <div id="player-list" style="font-size:13px;">Connecting...</div>
     </div>
     <div id="controls">
-      WASD - MOVE<br>
-      SHIFT - RUN<br>
-      SPACE - JUMP<br>
-      MOUSE - CAMERA<br>
-      C - CAM DIST
+      <b>WASD</b> MOVE · <b>SHIFT</b> RUN<br>
+      <b>SPACE</b> JUMP · <b>MOUSE</b> LOOK<br>
+      <b>C</b> CAM · <b>V</b> SHOULDER · <b>CLICK</b> LOCK
     </div>
   </div>
   <script type="module" src="/src/main.ts"></script>

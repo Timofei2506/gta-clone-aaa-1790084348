@@ -1,5 +1,5 @@
 /**
- * main.ts - Entry point, как в RAGE
+ * main.ts - Clean boot, no spam
  */
 import { Engine } from './core/Engine'
 
@@ -16,30 +16,19 @@ async function boot() {
   const onProgress = (p:number, text:string) => {
     progress.style.width = `${p}%`
     loadingText.textContent = text
-    console.log(`[Boot] ${p}% ${text}`)
   }
 
   try {
     await engine.init(onProgress)
-    
-    // Скрываем лоадинг
     loading.style.opacity = '0'
-    setTimeout(() => loading.style.display = 'none', 500)
-
+    setTimeout(() => loading.style.display = 'none', 400)
     engine.start()
-    console.log('[Boot] Game started')
-
-    // Клик для локка мыши - как в GTA
     canvas.addEventListener('click', () => {
-      if (!document.pointerLockElement) {
-        canvas.requestPointerLock()
-      }
+      if (!document.pointerLockElement) canvas.requestPointerLock()
     })
-
   } catch(e) {
-    console.error('[Boot] Failed', e)
-    loadingText.textContent = 'FAILED: ' + (e as Error).message
-    loadingText.style.color = '#ff3b30'
+    loadingText.textContent = 'BOOT FAILED'
+    console.error(e)
   }
 }
 

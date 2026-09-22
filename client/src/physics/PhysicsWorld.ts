@@ -1,16 +1,18 @@
 /**
  * PhysicsWorld.ts - Rapier физика, как Bullet в RAGE
+ * FIX: deprecated init warning
  */
 import * as RAPIER from '@dimforge/rapier3d-compat'
 
 export class PhysicsWorld {
   private world!: RAPIER.World
-  private gravity = { x: 0, y: -9.81 * 2, z: 0 } // x2 для GTA feel
+  private gravity = { x: 0, y: -19.62, z: 0 }
 
   async init() {
-    await RAPIER.init()
+    // FIX: new API expects object, not empty call
+    // @ts-ignore
+    await RAPIER.init({})
     this.world = new RAPIER.World(this.gravity)
-    console.log('[Physics] Rapier initialized')
   }
 
   step(dt: number) {
@@ -28,7 +30,6 @@ export class PhysicsWorld {
     return this.world.createCollider(desc, body)
   }
 
-  // Raycast для камеры, как в GTA 5 чтобы не проходить сквозь стены
   castRay(origin: any, direction: any, maxDist: number) {
     const ray = new RAPIER.Ray(origin, direction)
     return this.world.castRay(ray, maxDist, true)

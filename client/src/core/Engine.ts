@@ -1,6 +1,5 @@
 /**
- * Engine.ts - RAGE-like Game Loop
- * Senior Rockstar architecture: fixed tick + variable render
+ * Engine.ts - RAGE-like Game Loop, clean logs
  */
 import * as THREE from 'three'
 import { PhysicsWorld } from '../physics/PhysicsWorld'
@@ -18,7 +17,7 @@ export class Engine {
   
   private clock = new THREE.Clock()
   private accumulator = 0
-  private readonly FIXED_TIMESTEP = 1/60 // 60 Hz physics like RAGE
+  private readonly FIXED_TIMESTEP = 1/60
   
   private isRunning = false
   private rafId = 0
@@ -32,18 +31,14 @@ export class Engine {
   }
 
   async init(onProgress: (p:number, text:string)=>void) {
-    onProgress(10, 'INIT RAPIER...')
+    onProgress(10, 'INIT PHYSICS')
     await this.physics.init()
-    
-    onProgress(30, 'BUILDING CITY...')
+    onProgress(35, 'GENERATING CITY')
     await this.world.init()
-    
-    onProgress(70, 'SPAWNING PLAYER...')
+    onProgress(70, 'SPAWNING PLAYER')
     await this.world.spawnLocalPlayer()
-    
-    onProgress(90, 'CONNECTING ONLINE...')
+    onProgress(85, 'ONLINE CHECK')
     await this.world.initMultiplayer()
-    
     onProgress(100, 'READY')
   }
 
@@ -68,7 +63,6 @@ export class Engine {
     this.time.update(delta)
     this.input.update()
 
-    // Fixed timestep physics - как в RAGE, чтобы не было tunneling
     while (this.accumulator >= this.FIXED_TIMESTEP) {
       this.physics.step(this.FIXED_TIMESTEP)
       this.world.fixedUpdate(this.FIXED_TIMESTEP)
@@ -79,11 +73,10 @@ export class Engine {
     this.world.update(delta, alpha)
     this.renderer.render(delta, this.time)
     
-    // HUD
     const pos = this.world.localPlayer?.position
     if (pos) {
       const el = document.getElementById('coords')
-      if (el) el.textContent = `X:${pos.x.toFixed(1)} Y:${pos.y.toFixed(1)} Z:${pos.z.toFixed(1)} | FPS:${Math.round(1/delta)}`
+      if (el) el.textContent = `${pos.x.toFixed(0)} ${pos.y.toFixed(0)} ${pos.z.toFixed(0)} | ${Math.round(1/delta)} FPS | ${this.world.remotePlayers.size + 1} ONLINE`
     }
   }
 

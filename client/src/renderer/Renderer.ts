@@ -1,5 +1,5 @@
 /**
- * Renderer.ts - PBR рендерер как в RAGE
+ * Renderer.ts - FIXED: PBR + Sky + Fog + Realistic
  */
 import * as THREE from 'three'
 import { Lighting } from './Lighting'
@@ -13,26 +13,65 @@ export class Renderer {
 
   constructor(private canvas: HTMLCanvasElement) {
     this.scene = new THREE.Scene()
-    this.scene.fog = new THREE.FogExp2(0x1a1a2e, 0.0008)
-    this.scene.background = new THREE.Color(0x0f0f1a)
+    this.scene.fog = new THREE.FogExp2(0x1a1a2e, 0.0012)
+    this.scene.background = new THREE.Color(0x87ceeb)
 
-    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000)
+    this.camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 3000)
     this.camera.position.set(0, 10, 20)
 
     this.webglRenderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
-      powerPreference: 'high-performance'
+      powerPreference: 'high-performance',
+      stencil: false
     })
     this.webglRenderer.setSize(window.innerWidth, window.innerHeight)
-    this.webglRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    this.webglRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8))
     this.webglRenderer.shadowMap.enabled = true
     this.webglRenderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this.webglRenderer.shadowMap.autoUpdate = true
     this.webglRenderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.webglRenderer.toneMappingExposure = 1.2
+    this.webglRenderer.toneMappingExposure = 1.0
     this.webglRenderer.outputColorSpace = THREE.SRGBColorSpace
+    this.webglRenderer.useLegacyLights = false
 
     this.lighting = new Lighting(this.scene)
+
+    // Sky gradient
+    const vertexShader = `
+      varying vec3 vWorldPosition;
+      void main() {
+        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPosition.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `
+    const fragmentShader = `
+      uniform vec3 topColor;
+      uniform vec3 bottomColor;
+      uniform float offset;
+      uniform float exponent;
+      varying vec3 vWorldPosition;
+      void main() {
+        float h = normalize(vWorldPosition + offset).y;
+        gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+      }
+    `
+    const uniforms = {
+      topColor: { value: new THREE.Color(0x0077ff) },
+      bottomColor: { value: new THREE.Color(0xffffff) },
+      offset: { value: 400 },
+      exponent: { value: 0.6 }
+    }
+    const skyGeo = new THREE.SphereGeometry(2000, 32, 15)
+    const skyMat = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader,
+      fragmentShader,
+      side: THREE.BackSide
+    })
+    const sky = new THREE.Mesh(skyGeo, skyMat)
+    this.scene.add(sky)
 
     window.addEventListener('resize', () => this.onResize())
   }
