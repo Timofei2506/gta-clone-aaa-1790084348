@@ -1,0 +1,63 @@
+name: Build GTA Clone EXE
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          npm install
+          cd client && npm install
+          cd ../server && npm install
+          cd ..
+      
+      - name: Build client & server
+        run: |
+          npm run build --workspace=client
+          npm run build --workspace=server
+      
+      - name: Build EXE with Electron
+        run: |
+          npx electron-builder --win --config electron-builder.json --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GTA-Clone-AAA-Windows
+          path: |
+            dist/*.exe
+            dist-electron/*.exe
+          retention-days: 7
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: |
+          npm install
+          cd client && npm install && npm run build
+          cd ../server && npm install && npm run build
+      - name: Upload web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: GTA-Clone-AAA-Web
+          path: client/dist

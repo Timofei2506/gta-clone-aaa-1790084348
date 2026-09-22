@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GTA CLONE AAA - Open City Reborn</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { 
+      background:#000; 
+      overflow:hidden; 
+      font-family: 'Segoe UI', system-ui, monospace;
+      cursor: none;
+    }
+    #canvas { width:100vw; height:100vh; display:block; }
+    #ui {
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      pointer-events:none; color:white;
+    }
+    #crosshair {
+      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+      width:20px; height:20px; 
+    }
+    #crosshair::before, #crosshair::after {
+      content:''; position:absolute; background:rgba(255,255,255,0.8);
+    }
+    #crosshair::before { left:9px; top:0; width:2px; height:20px; }
+    #crosshair::after { left:0; top:9px; width:20px; height:2px; }
+    #hud {
+      position:absolute; bottom:20px; left:20px;
+      background:rgba(0,0,0,0.6); padding:12px 18px; border-radius:8px;
+      backdrop-filter: blur(10px); border:1px solid rgba(255,255,255,0.1);
+    }
+    #hud h1 { font-size:14px; letter-spacing:2px; opacity:0.6; }
+    #hud .stat { font-size:22px; font-weight:700; margin-top:4px; }
+    #players {
+      position:absolute; top:20px; right:20px;
+      background:rgba(0,0,0,0.6); padding:12px; border-radius:8px;
+      backdrop-filter: blur(10px); min-width:180px;
+    }
+    #loading {
+      position:fixed; inset:0; background:#0a0a0a; display:flex;
+      flex-direction:column; align-items:center; justify-content:center;
+      z-index:100; color:white; transition:opacity 0.5s;
+    }
+    #loading h2 { font-size:32px; letter-spacing:8px; margin-bottom:20px; }
+    #loading .bar { width:300px; height:2px; background:rgba(255,255,255,0.1); overflow:hidden; }
+    #loading .progress { height:100%; width:0%; background:white; transition:width 0.2s; }
+    #controls {
+      position:absolute; bottom:20px; right:20px;
+      background:rgba(0,0,0,0.6); padding:12px; border-radius:8px;
+      font-size:12px; opacity:0.7; line-height:1.6;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="loading">
+    <h2>OPEN CITY</h2>
+    <div class="bar"><div class="progress" id="progress"></div></div>
+    <div style="margin-top:12px; font-size:12px; opacity:0.5; letter-spacing:2px;" id="loading-text">LOADING RAGE...</div>
+  </div>
+  <div id="ui">
+    <div id="crosshair"></div>
+    <div id="hud">
+      <h1>HEALTH & STAMINA</h1>
+      <div class="stat" id="coords">X:0 Y:0 Z:0</div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <div style="width:80px; height:6px; background:rgba(255,255,255,0.2); border-radius:3px; overflow:hidden;">
+          <div id="health-bar" style="width:100%; height:100%; background:#ff3b30;"></div>
+        </div>
+        <div style="width:80px; height:6px; background:rgba(255,255,255,0.2); border-radius:3px; overflow:hidden;">
+          <div id="stamina-bar" style="width:100%; height:100%; background:#4cd964;"></div>
+        </div>
+      </div>
+    </div>
+    <div id="players">
+      <div style="font-size:11px; letter-spacing:2px; opacity:0.5; margin-bottom:8px;">ONLINE PLAYERS</div>
+      <div id="player-list">Connecting...</div>
+    </div>
+    <div id="controls">
+      WASD - MOVE<br>
+      SHIFT - RUN<br>
+      SPACE - JUMP<br>
+      MOUSE - CAMERA<br>
+      C - CAM DIST
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

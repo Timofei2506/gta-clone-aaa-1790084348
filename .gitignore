@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-electron
+out
+.env
+*.log
+.DS_Store
+.vscode
+.idea
+# Electron
+electron/dist
+# Vite
+client/dist
+server/dist
+# Token - NEVER COMMIT
+.env.local
+*.key

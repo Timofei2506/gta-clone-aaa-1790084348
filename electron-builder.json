@@ -1,0 +1,22 @@
+{
+  "appId": "com.gta.clone.aaa",
+  "productName": "GTA Clone AAA",
+  "files": [
+    "client/dist/**/*",
+    "electron/**/*"
+  ],
+  "directories": {
+    "buildResources": "assets"
+  },
+  "win": {
+    "target": "nsis",
+    "icon": "client/src/assets/icon.png"
+  },
+  "linux": {
+    "target": "AppImage"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}
